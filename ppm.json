@@ -1,6 +1,0 @@
-{
-  "description": ".gitignore 파일을 자동으로 생성해주는 CLI 도구",
-  "author": "seoyc",
-  "homepage": "https://github.com/seoyc/iggen",
-  "bin_name": "iggen"
-}
