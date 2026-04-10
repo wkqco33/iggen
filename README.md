@@ -8,7 +8,7 @@
 ## 설치
 
 ```bash
-ppm install seoyc/iggen
+ppm install wkqco33/iggen
 ```
 
 > [ppm](https://github.com/seoyc/ppm)이 설치되어 있어야 합니다.
