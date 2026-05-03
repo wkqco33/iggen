@@ -48,7 +48,12 @@ jobs:
         shell: bash
         run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
 
-      - name: Configure
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --preset release -DVCPKG_TARGET_TRIPLET=x64-windows-static
+
+      - name: Configure (Unix)
+        if: runner.os != 'Windows'
         run: cmake --preset release
 
       - name: Build
