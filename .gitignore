@@ -5,6 +5,10 @@ dist/
 *.bak
 *.swp
 
+# Python tool caches
+.ruff_cache/
+__pycache__/
+
 vcpkg_installed/
 
 # Created by https://www.toptal.com/developers/gitignore/api/c,c++,cmake,linux,macos,visualstudiocode,windows
@@ -124,7 +128,8 @@ CMakeUserPresets.json
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*

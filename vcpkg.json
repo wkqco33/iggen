@@ -3,6 +3,7 @@
   "version-string": "0.1.0",
   "description": "Auto-generates .gitignore files via gitignore.io API",
   "dependencies": [
-    { "name": "cpp-httplib", "features": ["openssl"] }
+    { "name": "cpp-httplib", "features": ["openssl"] },
+    { "name": "nlohmann-json" }
   ]
 }

@@ -104,12 +104,18 @@ inline auto extension_map()
 // Uses a reusable thread-local buffer to avoid per-call heap allocation.
 inline std::string_view file_extension(const std::filesystem::path &p) {
     static thread_local std::string buf;
-    buf = p.extension().string();
-    if (!buf.empty() && buf[0] == '.') {
-        buf.erase(0, 1);
+    buf.clear();
+#ifdef _WIN32
+    const auto ext = p.extension().string();
+#else
+    const auto ext_path = p.extension();
+    const auto &ext = ext_path.native();
+#endif
+    const size_t start = (!ext.empty() && ext[0] == '.') ? 1 : 0;
+    buf.reserve(ext.size() - start);
+    for (size_t i = start; i < ext.size(); ++i) {
+        buf.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ext[i]))));
     }
-    std::transform(buf.begin(), buf.end(), buf.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return buf;
 }
 

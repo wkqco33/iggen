@@ -15,3 +15,18 @@ add_executable(iggen_test_file_writer test_file_writer.cpp)
 target_include_directories(iggen_test_file_writer PRIVATE ${IGGEN_TEST_INCLUDES})
 target_link_libraries(iggen_test_file_writer PRIVATE wcppcli)
 add_test(NAME iggen_file_writer COMMAND iggen_test_file_writer)
+
+add_executable(iggen_test_template_store test_template_store.cpp)
+target_include_directories(iggen_test_template_store PRIVATE ${IGGEN_TEST_INCLUDES})
+target_link_libraries(iggen_test_template_store PRIVATE nlohmann_json::nlohmann_json)
+add_test(NAME iggen_template_store COMMAND iggen_test_template_store)
+
+add_executable(iggen_test_paths test_paths.cpp)
+target_include_directories(iggen_test_paths PRIVATE ${IGGEN_TEST_INCLUDES})
+add_test(NAME iggen_paths COMMAND iggen_test_paths)
+
+add_executable(iggen_test_api_client test_api_client.cpp)
+target_include_directories(iggen_test_api_client PRIVATE ${IGGEN_TEST_INCLUDES})
+target_link_libraries(iggen_test_api_client PRIVATE httplib::httplib OpenSSL::SSL OpenSSL::Crypto)
+target_compile_definitions(iggen_test_api_client PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
+add_test(NAME iggen_api_client COMMAND iggen_test_api_client)

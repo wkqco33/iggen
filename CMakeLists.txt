@@ -16,6 +16,7 @@ add_subdirectory(wcppcli EXCLUDE_FROM_ALL)
 # HTTP client (HTTPS via OpenSSL)
 find_package(httplib CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(iggen src/main.cpp)
 
@@ -24,7 +25,7 @@ target_include_directories(iggen PRIVATE
 )
 target_compile_definitions(iggen PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
 target_compile_features(iggen PRIVATE cxx_std_17)
-target_link_libraries(iggen PRIVATE wcppcli httplib::httplib OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(iggen PRIVATE wcppcli httplib::httplib OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json)
 
 include(CTest)
 if(BUILD_TESTING)
