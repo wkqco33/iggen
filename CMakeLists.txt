@@ -9,9 +9,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# wcppcli submodule — EXCLUDE_FROM_ALL skips example targets; wcppcli lib is
-# built on-demand when iggen links against it.
-add_subdirectory(wcppcli EXCLUDE_FROM_ALL)
+# wcppcli — fetched as a git dependency (FetchContent) instead of a submodule.
+# wcppcli's CMakeLists detects it is not the top-level project and disables its
+# examples/tool/tests by default, exposing only the wcppcli library target.
+include(FetchContent)
+FetchContent_Declare(
+  wcppcli
+  GIT_REPOSITORY https://github.com/wkqco33/wcppcli
+  GIT_TAG master
+)
+FetchContent_MakeAvailable(wcppcli)
 
 # HTTP client (HTTPS via OpenSSL)
 find_package(httplib CONFIG REQUIRED)

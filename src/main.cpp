@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     auto update_cmd = std::make_unique<Command>();
     update_cmd->name = "update";
     update_cmd->description = "Refresh the local template cache from gitignore.io";
-    update_cmd->handler = [](const Command &) {
+    update_cmd->handler = [](const Command &) -> int {
         auto list = iggen::fetch_template_list();
         if (!list.success) {
             WLog::error("Failed to fetch template list: " + list.body);
@@ -150,10 +150,11 @@ int main(int argc, char **argv) {
             std::exit(1);
         }
         WLog::success("Updated cache: " + std::to_string(ok) + " templates -> " + cache.string());
+        return 0;
     };
     root.add_command(std::move(update_cmd));
 
-    root.handler = [&](const Command &) {
+    root.handler = [&](const Command &) -> int {
         // 1. Determine template set
         std::set<std::string> templates;
 
@@ -217,10 +218,11 @@ int main(int argc, char **argv) {
         }
         if (write_result == iggen::WriteResult::Skipped) {
             WLog::warn("Skipped. Use -o to specify a different output file.");
-            return;
+            return 0;
         }
 
         WLog::success("Generated: " + output);
+        return 0;
     };
 
     return root.execute(argc, argv);
