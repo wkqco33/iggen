@@ -14,11 +14,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            asset_name: iggen_linux_amd64
+            asset_name: iggen_linux_amd64.tar.gz
+            archive_cmd: tar -czf
           - os: macos-latest
-            asset_name: iggen_darwin_arm64
+            asset_name: iggen_darwin_arm64.tar.gz
+            archive_cmd: tar -czf
           - os: windows-latest
-            asset_name: iggen_windows_amd64.exe
+            asset_name: iggen_windows_amd64.zip
+            archive_cmd: powershell Compress-Archive
 
     runs-on: ${{ matrix.os }}
 
@@ -59,16 +62,31 @@ jobs:
       - name: Build
         run: cmake --build --preset release
 
-      - name: Package binary (Unix)
+      # Package as an archive per PACKAGE_GUIDE (archive format preferred over bare binary).
+      - name: Package archive (Unix)
         if: runner.os != 'Windows'
-        run: cp build/release/iggen ${{ matrix.asset_name }}
+        shell: bash
+        run: |
+          mkdir -p staging
+          cp build/release/iggen staging/iggen
+          tar -czf "${{ matrix.asset_name }}" -C staging iggen
 
-      - name: Package binary (Windows)
+      - name: Package archive (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: cp build/release/iggen.exe "${{ matrix.asset_name }}"
+        run: |
+          mkdir -p staging
+          cp build/release/iggen.exe staging/iggen.exe
+          powershell -Command "Compress-Archive -Path staging/iggen.exe -DestinationPath '${{ matrix.asset_name }}'"
+
+      - name: Generate SHA-256 checksum
+        shell: bash
+        run: |
+          sha256sum "${{ matrix.asset_name }}" > "${{ matrix.asset_name }}.sha256"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset_name }}
+          files: |
+            ${{ matrix.asset_name }}
+            ${{ matrix.asset_name }}.sha256

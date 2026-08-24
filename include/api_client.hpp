@@ -1,7 +1,6 @@
 #pragma once
 
-// CPPHTTPLIB_OPENSSL_SUPPORT must be defined before including httplib.h.
-// It is set as a compile definition in CMakeLists.txt; guard here for safety.
+// Must be defined before including httplib.h (set in CMakeLists.txt).
 #ifndef CPPHTTPLIB_OPENSSL_SUPPORT
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #endif
@@ -18,22 +17,20 @@ struct ApiResult {
     std::string body;
 };
 
-inline ApiResult fetch_gitignore(const std::set<std::string>& templates) {
+inline ApiResult fetch_gitignore(const std::set<std::string> &templates) {
     if (templates.empty()) {
         return {false, "no templates specified"};
     }
 
-    // Build comma-separated template string
     std::ostringstream joined;
     bool first = true;
-    for (const auto& t : templates) {
-        if (!first) joined << ',';
+    for (const auto &t : templates) {
+        if (!first)
+            joined << ',';
         joined << t;
         first = false;
     }
 
-    // SSL certificate verification is disabled for convenience in a personal utility.
-    // To harden: remove the line below and set a CA bundle via set_ca_cert_path().
     httplib::SSLClient client("www.toptal.com");
     client.set_connection_timeout(10);
     client.set_read_timeout(10);

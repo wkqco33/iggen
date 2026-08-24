@@ -15,10 +15,10 @@
 namespace fs = std::filesystem;
 using namespace wcppcli;
 
-static auto split_comma(const std::string& str) -> std::vector<std::string> {
+static auto split_comma(const std::string &str) -> std::vector<std::string> {
     std::vector<std::string> result;
-    std::istringstream       stream(str);
-    std::string              token;
+    std::istringstream stream(str);
+    std::string token;
     while (std::getline(stream, token, ',')) {
         if (!token.empty()) {
             result.push_back(token);
@@ -27,42 +27,42 @@ static auto split_comma(const std::string& str) -> std::vector<std::string> {
     return result;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     Command root;
-    root.name        = "iggen";
+    root.name = "iggen";
     root.description = "Auto-generates .gitignore via gitignore.io API";
-    root.usage       = "iggen [--lang <langs>] [--no-defaults] [--output <file>]";
+    root.usage = "iggen [--lang <langs>] [--no-defaults] [--output <file>]";
 
     std::string langs_raw;
-    bool        no_defaults = false;
-    std::string output      = ".gitignore";
+    bool no_defaults = false;
+    std::string output = ".gitignore";
 
     Flag lang_flag;
-    lang_flag.name        = "lang";
-    lang_flag.shorthand   = 'l';
+    lang_flag.name = "lang";
+    lang_flag.shorthand = 'l';
     lang_flag.description = "Comma-separated language list (overrides auto-detect)";
-    lang_flag.value_ptr   = &langs_raw;
+    lang_flag.value_ptr = &langs_raw;
     root.add_flag(lang_flag);
 
     Flag nodef_flag;
-    nodef_flag.name        = "no-defaults";
+    nodef_flag.name = "no-defaults";
     nodef_flag.description = "Skip default templates (visualstudiocode, linux, macos, windows)";
-    nodef_flag.value_ptr   = &no_defaults;
+    nodef_flag.value_ptr = &no_defaults;
     root.add_flag(nodef_flag);
 
     Flag out_flag;
-    out_flag.name        = "output";
-    out_flag.shorthand   = 'o';
+    out_flag.name = "output";
+    out_flag.shorthand = 'o';
     out_flag.description = "Output file path (default: .gitignore)";
-    out_flag.value_ptr   = &output;
+    out_flag.value_ptr = &output;
     root.add_flag(out_flag);
 
-    root.handler = [&](const Command&) {
+    root.handler = [&](const Command &) {
         // 1. Determine template set
         std::set<std::string> templates;
 
         if (!langs_raw.empty()) {
-            for (const auto& lang : split_comma(langs_raw)) {
+            for (const auto &lang : split_comma(langs_raw)) {
                 templates.insert(lang);
             }
         } else {
@@ -77,15 +77,15 @@ int main(int argc, char** argv) {
 
         // 2. Add default OS/editor templates unless suppressed
         if (!no_defaults) {
-            for (const auto* tpl : {"linux", "macos", "visualstudiocode", "windows"}) {
+            for (const auto *tpl : {"linux", "macos", "visualstudiocode", "windows"}) {
                 templates.insert(tpl);
             }
         }
 
         // 3. Show fetching info
         std::ostringstream list;
-        bool               first = true;
-        for (const auto& tpl : templates) {
+        bool first = true;
+        for (const auto &tpl : templates) {
             if (!first) {
                 list << ", ";
             }

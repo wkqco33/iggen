@@ -86,7 +86,9 @@ cmake --build --preset debug-native
 ## 테스트
 
 ```bash
-ctest --preset debug
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug --output-on-failure
 ```
 
 ## 프로젝트 구조
@@ -101,8 +103,13 @@ iggen/
 │   └── main.cpp          # CLI 진입점 (wcppcli 기반)
 ├── tests/
 │   ├── smoke_test.cpp
-│   └── test_detector.cpp # 언어 감지 단위 테스트
-└── wcppcli/              # CLI 프레임워크 서브모듈
+│   ├── test_detector.cpp     # 언어 감지 단위 테스트
+│   └── test_file_writer.cpp  # 파일 출력 단위 테스트
+├── wcppcli/              # CLI 프레임워크 서브모듈
+├── AGENTS.md             # 에이전트/개발자 개발 가이드
+├── CONTRIBUTING.md       # 기여 가이드
+├── SECURITY.md           # 보안 정책
+└── LICENSE               # MIT 라이선스
 ```
 
 ## 코드 스타일
@@ -113,3 +120,7 @@ clang-tidy src/*.cpp -- -std=c++17
 ```
 
 `.clang-format` (LLVM, 4-space indent, 100 col) 및 `.clang-tidy` 설정 파일을 따릅니다.
+
+## 라이선스
+
+[MIT](LICENSE) 라이선스로 배포됩니다. 기여는 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.

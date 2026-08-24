@@ -2,5 +2,6 @@
   "description": ".gitignore 파일을 자동으로 생성해주는 CLI 도구",
   "author": "wkqco33",
   "homepage": "https://github.com/wkqco33/iggen",
-  "bin_name": "iggen"
+  "bin_name": "iggen",
+  "dependencies": {}
 }
