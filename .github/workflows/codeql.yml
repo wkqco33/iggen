@@ -1,0 +1,61 @@
+name: "CodeQL Analysis"
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    # 매주 월요일 UTC 03:00 (한국 시간 12:00) 정기 보안 스캔
+    - cron: '0 3 * * 1'
+
+jobs:
+  analyze:
+    name: CodeQL Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['c-cpp']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install Ninja
+        run: sudo apt-get install -y ninja-build
+
+      - name: Set VCPKG_ROOT
+        shell: bash
+        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
+
+      - name: Cache vcpkg artifacts
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vcpkg/archives
+          key: vcpkg-codeql-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-codeql-${{ runner.os }}-
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Configure CMake
+        run: cmake --preset debug
+
+      - name: Build C++ targets for CodeQL tracing
+        run: cmake --build --preset debug
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
