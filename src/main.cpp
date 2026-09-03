@@ -9,10 +9,12 @@
 #include "wcppcli/wlog.hpp"
 #include "wcppcli/wui.hpp"
 
+#include "ai_refiner.hpp"
 #include "api_client.hpp"
 #include "detector.hpp"
 #include "file_writer.hpp"
 #include "paths.hpp"
+#include "project_scanner.hpp"
 #include "template_store.hpp"
 
 namespace fs = std::filesystem;
@@ -80,12 +82,38 @@ static auto resolve_content(const std::set<std::string> &templates) -> ResolveRe
 int main(int argc, char **argv) {
     Command root;
     root.name = "iggen";
-    root.description = "Auto-generates .gitignore via gitignore.io API (offline fallback built-in)";
-    root.usage = "iggen [--lang <langs>] [--no-defaults] [--output <file>] | iggen update";
+    root.description = "Auto-generates .gitignore via gitignore.io API (offline fallback built-in, "
+                       "AI customization)";
+    root.usage = "iggen [--lang <langs>] [--no-defaults] [--output <file>] [--ai] [--dry-run] | "
+                 "iggen update";
 
     std::string langs_raw;
     bool no_defaults = false;
     std::string output = ".gitignore";
+    bool dry_run = false;
+
+    bool use_ai = false;
+    std::string ai_provider = "ollama";
+    std::string ai_model = "llama3";
+    std::string ai_base_url = "http://localhost:11434";
+    std::string ai_api_key;
+
+    if (const char *env = std::getenv("IGGEN_AI_PROVIDER")) {
+        ai_provider = env;
+    }
+    if (const char *env = std::getenv("IGGEN_AI_MODEL")) {
+        ai_model = env;
+    }
+    if (const char *env = std::getenv("IGGEN_AI_BASE_URL")) {
+        ai_base_url = env;
+    } else if (const char *env = std::getenv("OLLAMA_HOST")) {
+        ai_base_url = env;
+    }
+    if (const char *env = std::getenv("IGGEN_AI_API_KEY")) {
+        ai_api_key = env;
+    } else if (const char *env = std::getenv("OPENAI_API_KEY")) {
+        ai_api_key = env;
+    }
 
     Flag lang_flag;
     lang_flag.name = "lang";
@@ -106,6 +134,44 @@ int main(int argc, char **argv) {
     out_flag.description = "Output file path (default: .gitignore)";
     out_flag.value_ptr = &output;
     root.add_flag(out_flag);
+
+    Flag dry_run_flag;
+    dry_run_flag.name = "dry-run";
+    dry_run_flag.shorthand = 'd';
+    dry_run_flag.description = "Print generated .gitignore to stdout without writing to file";
+    dry_run_flag.value_ptr = &dry_run;
+    root.add_flag(dry_run_flag);
+
+    Flag ai_flag;
+    ai_flag.name = "ai";
+    ai_flag.shorthand = 'a';
+    ai_flag.description = "Refine .gitignore tailored to project using LLM";
+    ai_flag.value_ptr = &use_ai;
+    root.add_flag(ai_flag);
+
+    Flag ai_provider_flag;
+    ai_provider_flag.name = "ai-provider";
+    ai_provider_flag.description = "LLM provider (default: ollama)";
+    ai_provider_flag.value_ptr = &ai_provider;
+    root.add_flag(ai_provider_flag);
+
+    Flag ai_model_flag;
+    ai_model_flag.name = "ai-model";
+    ai_model_flag.description = "LLM model (default: llama3)";
+    ai_model_flag.value_ptr = &ai_model;
+    root.add_flag(ai_model_flag);
+
+    Flag ai_url_flag;
+    ai_url_flag.name = "ai-base-url";
+    ai_url_flag.description = "LLM base endpoint URL (default: http://localhost:11434)";
+    ai_url_flag.value_ptr = &ai_base_url;
+    root.add_flag(ai_url_flag);
+
+    Flag ai_key_flag;
+    ai_key_flag.name = "ai-api-key";
+    ai_key_flag.description = "LLM API key (optional for ollama)";
+    ai_key_flag.value_ptr = &ai_api_key;
+    root.add_flag(ai_key_flag);
 
     // `iggen update` — refresh the local template cache from gitignore.io.
     auto update_cmd = std::make_unique<Command>();
@@ -210,8 +276,38 @@ int main(int argc, char **argv) {
             std::exit(1);
         }
 
-        // 5. Write output file
-        const auto write_result = iggen::write_output(output, resolved.content);
+        std::string final_content = resolved.content;
+
+        // 5. If --ai is requested, refine using LLM
+        if (use_ai) {
+            WLog::info("Scanning project files for AI context...");
+            auto proj_ctx = iggen::scan_project_context(fs::current_path());
+
+            WLog::info("Refining .gitignore with AI (" + ai_provider + " / " + ai_model + ")...");
+            iggen::AiConfig ai_config;
+            ai_config.provider = ai_provider;
+            ai_config.model = ai_model;
+            ai_config.base_url = ai_base_url;
+            ai_config.api_key = ai_api_key;
+
+            auto ai_result = iggen::refine_gitignore(resolved.content, proj_ctx, ai_config);
+            if (ai_result.success && !ai_result.content.empty()) {
+                final_content = ai_result.content;
+                WLog::success("Successfully refined .gitignore with AI.");
+                if (!ai_result.summary.empty()) {
+                    WLog::info("AI 작업 요약:\n" + ai_result.summary);
+                }
+            } else {
+                WLog::warn("AI refinement failed: " + ai_result.error_message);
+                WLog::warn("Falling back to base gitignore template.");
+            }
+        }
+
+        // 6. Write output file (or stdout if dry-run)
+        const auto write_result = iggen::write_output(output, final_content, dry_run);
+        if (write_result == iggen::WriteResult::DryRun) {
+            return 0;
+        }
         if (write_result == iggen::WriteResult::Error) {
             WLog::error("Failed to write: " + output);
             std::exit(1);

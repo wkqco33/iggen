@@ -18,8 +18,8 @@ struct StringViewHash {
     }
 };
 
-inline auto extension_map()
-    -> const std::unordered_map<std::string_view, std::string_view, StringViewHash> & {
+inline auto
+extension_map() -> const std::unordered_map<std::string_view, std::string_view, StringViewHash> & {
     static const std::unordered_map<std::string_view, std::string_view, StringViewHash> map = {
         // C / C++
         {"cpp", "c++"},

@@ -19,10 +19,16 @@ inline auto is_stdin_tty() -> bool {
 
 namespace iggen {
 
-enum class WriteResult { Written, Skipped, Error };
+enum class WriteResult { Written, Skipped, Error, DryRun };
 
-inline auto write_output(const std::filesystem::path &path, const std::string &content)
-    -> WriteResult {
+inline auto write_output(const std::filesystem::path &path, const std::string &content,
+                         bool dry_run = false,
+                         std::ostream &out_stream = std::cout) -> WriteResult {
+    if (dry_run) {
+        out_stream << content;
+        return WriteResult::DryRun;
+    }
+
     if (std::filesystem::exists(path)) {
         if (!is_stdin_tty()) {
             return WriteResult::Skipped; // refuse silent overwrite

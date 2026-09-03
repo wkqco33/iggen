@@ -9,21 +9,30 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# wcppcli — fetched as a git dependency (FetchContent) instead of a submodule.
-# wcppcli's CMakeLists detects it is not the top-level project and disables its
-# examples/tool/tests by default, exposing only the wcppcli library target.
+# HTTP and JSON dependencies
+find_package(httplib CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(cpr CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+
+# Dependencies fetched via git (FetchContent)
 include(FetchContent)
 FetchContent_Declare(
   wcppcli
   GIT_REPOSITORY https://github.com/wkqco33/wcppcli
   GIT_TAG master
 )
-FetchContent_MakeAvailable(wcppcli)
 
-# HTTP client (HTTPS via OpenSSL)
-find_package(httplib CONFIG REQUIRED)
-find_package(OpenSSL REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
+set(LLM_CLIENT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LLM_CLIENT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  llm_client
+  GIT_REPOSITORY https://github.com/wkqco33/LLM_client.git
+  GIT_TAG master
+)
+
+FetchContent_MakeAvailable(wcppcli llm_client)
 
 add_executable(iggen src/main.cpp)
 
@@ -32,7 +41,16 @@ target_include_directories(iggen PRIVATE
 )
 target_compile_definitions(iggen PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
 target_compile_features(iggen PRIVATE cxx_std_17)
-target_link_libraries(iggen PRIVATE wcppcli httplib::httplib OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json)
+target_link_libraries(iggen PRIVATE
+    wcppcli
+    httplib::httplib
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json
+    cpr::cpr
+    spdlog::spdlog
+    llm_client
+)
 
 include(CTest)
 if(BUILD_TESTING)

@@ -4,6 +4,8 @@
   "description": "Auto-generates .gitignore files via gitignore.io API",
   "dependencies": [
     { "name": "cpp-httplib", "features": ["openssl"] },
-    { "name": "nlohmann-json" }
+    { "name": "nlohmann-json" },
+    { "name": "cpr" },
+    { "name": "spdlog" }
   ]
 }

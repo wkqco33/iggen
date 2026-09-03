@@ -37,11 +37,22 @@ void test_write_existing_non_tty_skips() {
     fs::remove(p);
 }
 
+void test_write_dry_run_does_not_create_file() {
+    auto p = temp_file();
+    std::ostringstream captured;
+    auto r = iggen::write_output(p, "sample content\n", /*dry_run=*/true, captured);
+
+    assert(r == iggen::WriteResult::DryRun);
+    assert(!fs::exists(p));
+    assert(captured.str() == "sample content\n");
+}
+
 } // namespace
 
 auto main() -> int {
     test_write_new_file();
     test_write_existing_non_tty_skips();
+    test_write_dry_run_does_not_create_file();
     std::cout << "All file_writer tests passed.\n";
     return 0;
 }

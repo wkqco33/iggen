@@ -24,6 +24,12 @@ iggen [options]
 | `-l, --lang <langs>`  | 쉼표로 구분된 언어 목록 지정 (자동 감지 대신 사용)        |
 | `--no-defaults`       | 기본 템플릿(visualstudiocode, linux, macos, windows) 제외 |
 | `-o, --output <file>` | 출력 파일 경로 지정 (기본값: `.gitignore`)                |
+| `-d, --dry-run`       | 파일에 쓰지 않고 생성된 `.gitignore`를 stdout으로 출력     |
+| `-a, --ai`            | LLM을 활용하여 프로젝트에 맞춤 정제된 `.gitignore` 생성   |
+| `--ai-provider <p>`   | LLM 프로바이더 지정 (기본값: `ollama`)                    |
+| `--ai-model <m>`      | LLM 모델 지정 (기본값: `llama3`)                          |
+| `--ai-base-url <u>`   | LLM 엔드포인트 URL (기본값: `http://localhost:11434`)     |
+| `--ai-api-key <k>`    | LLM API 키 (ollama 외 OpenAI 등 사용 시 지정)             |
 | `update`              | gitignore.io에서 로컬 템플릿 캐시를 최신화                |
 | `-h, --help`          | 도움말 출력                                               |
 
@@ -38,6 +44,21 @@ iggen -l python,node
 
 # 기본 OS/에디터 템플릿 없이 rust만 생성
 iggen -l rust --no-defaults
+
+# 파일에 쓰지 않고 터미널 출력으로 미리 확인 (dry-run)
+iggen --dry-run
+
+# LLM(기본 ollama)을 통해 프로젝트 맞춤형 .gitignore 정제 및 생성
+iggen --ai
+
+# AI 정제 결과를 파일 변경 없이 미리 확인
+iggen --ai --dry-run
+
+# 특정 Ollama 모델 지정하여 실행
+iggen --ai --ai-model "llama3.2"
+
+# 원격 Ollama 서버 또는 다른 프로바이더 활용
+iggen --ai --ai-base-url "http://192.168.1.100:11434"
 
 # 출력 파일 경로 지정
 iggen -o path/to/.gitignore
@@ -59,13 +80,28 @@ gitignore.io가 장애이거나 URL이 변경되거나 서비스가 종료되어
 생성 시 **API → 사용자 캐시 → 내장 기본값** 순서로 폴백합니다. API가 실패하면 로컬 저장소를
 사용하며, 로컬에 없는 템플릿은 경고로 알려줍니다.
 
+## LLM 기반 맞춤 정제 (`--ai`)
+
+`--ai` 플래그를 사용하면 gitignore.io 템플릿에만 의존하지 않고, 실제 프로젝트 구조를 심층 분석하여 맞춤형 `.gitignore`를 작성합니다:
+
+- **프로젝트 컨텍스트 분석**: 빌드 도구 파일(`CMakeLists.txt`, `package.json`, `Cargo.toml`, `.env*` 등), 파일 확장자 통계, 샘플 디렉토리 트리를 자동 수집합니다.
+- **LLM 라이브러리 연동**: [`LLM_client`](https://github.com/wkqco33/LLM_client) 라이브러리를 통해 로컬 Ollama 또는 다양한 LLM 서버에 연결합니다.
+- **안전한 장애 복원 (Graceful Fallback)**: Ollama 서버가 꺼져 있거나 일시적 오류가 발생해도 작업을 중단하지 않고 기본 gitignore.io 템플릿으로 자동 폴백합니다.
+
+환경 변수로도 기본 설정을 지정할 수 있습니다:
+- `IGGEN_AI_PROVIDER`: 프로바이더 (기본: `ollama`)
+- `IGGEN_AI_MODEL`: 모델명 (기본: `llama3`)
+- `IGGEN_AI_BASE_URL` 또는 `OLLAMA_HOST`: 서버 주소 (기본: `http://localhost:11434`)
+- `IGGEN_AI_API_KEY` 또는 `OPENAI_API_KEY`: API 키
+
 ## 동작 방식
 
 1. 현재 디렉토리를 재귀 스캔하여 파일 확장자로 언어 감지
 2. 기본 템플릿(`visualstudiocode`, `linux`, `macos`, `windows`) 추가 (`--no-defaults`로 비활성화)
-3. gitignore.io API에서 템플릿 조합을 가져와 `.gitignore` 생성
+3. gitignore.io API(또는 로컬 캐시/내장값)에서 기본 템플릿 수신
+4. (`--ai` 활성화 시) 프로젝트 파일 구조를 스캔하여 LLM을 통해 맞춤형 `.gitignore`로 정제
 
-빌드 결과물, 의존성 디렉토리(`.git`, `build`, `node_modules`, `target` 등)는 스캔에서 제외됩니다.
+빌드 결과물, 의존성 디렉토리(`.git`, `build`, `node_modules`, `target`, `vcpkg_installed` 등)는 스캔에서 제외됩니다.
 
 ## Prerequisites
 
