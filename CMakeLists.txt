@@ -34,6 +34,13 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(wcppcli llm_client)
 
+if(TARGET llm_client_shared)
+  set_target_properties(llm_client_shared PROPERTIES
+    OUTPUT_NAME "llm_client_shared"
+    EXCLUDE_FROM_ALL TRUE
+  )
+endif()
+
 add_executable(iggen src/main.cpp)
 
 target_include_directories(iggen PRIVATE
