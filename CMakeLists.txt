@@ -25,6 +25,18 @@ if(WIN32)
   add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
 endif()
 
+# vcpkg triplet의 CRT 링키지와 MSVC 런타임을 일치시킨다.
+# x64-windows-static 처럼 정적 CRT triplet을 쓰면 vcpkg 라이브러리는 /MT로 빌드되는데
+# 우리 오브젝트가 /MD로 남으면 LNK2038(RuntimeLibrary mismatch)로 링크가 실패한다.
+# (릴리스 워크플로우의 Windows 빌드가 이 오류로 실패했다.)
+if(MSVC AND DEFINED VCPKG_CRT_LINKAGE)
+  if(VCPKG_CRT_LINKAGE STREQUAL "static")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  else()
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  endif()
+endif()
+
 # HTTP and JSON dependencies
 find_package(httplib CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
