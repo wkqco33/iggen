@@ -12,8 +12,12 @@
 
 namespace iggen {
 
+// 캐시 파일 스키마 버전. 필드를 추가할 때는 올리고, 로더는 낮은 버전도 계속 읽는다.
+constexpr int kTemplateStoreSchemaVersion = 1;
+
 // A snapshot of gitignore.io templates: template name -> .gitignore content.
 struct TemplateStore {
+    int schema_version = kTemplateStoreSchemaVersion;
     std::string version;
     std::string source;
     std::string fetched_at;
@@ -58,6 +62,7 @@ inline bool load_store(const std::filesystem::path &path, TemplateStore &out) {
     if (!j.contains("templates") || !j["templates"].is_object()) {
         return false;
     }
+    out.schema_version = j.value("schema_version", kTemplateStoreSchemaVersion);
     out.version = j.value("version", "");
     out.source = j.value("source", "");
     out.fetched_at = j.value("fetched_at", "");
@@ -71,19 +76,44 @@ inline bool load_store(const std::filesystem::path &path, TemplateStore &out) {
 }
 
 // Writes a store to a JSON file, creating parent directories as needed.
+// 임시 파일에 먼저 쓴 뒤 rename 하므로 중단/디스크 오류 시에도 캐시가 깨지지 않는다.
 inline bool save_store(const std::filesystem::path &path, const TemplateStore &store) {
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
     nlohmann::json j;
+    j["schema_version"] = store.schema_version;
     j["version"] = store.version;
     j["source"] = store.source;
     j["fetched_at"] = store.fetched_at;
     j["templates"] = store.templates;
-    std::ofstream out(path, std::ios::out | std::ios::trunc);
-    if (!out) {
-        return false;
+
+    const std::filesystem::path tmp = std::filesystem::path(path.string() + ".tmp");
+    {
+        std::ofstream out(tmp, std::ios::out | std::ios::trunc);
+        if (!out) {
+            return false;
+        }
+        out << j.dump(2);
+        out.flush();
+        if (!out) {
+            out.close();
+            std::filesystem::remove(tmp, ec);
+            return false;
+        }
     }
-    out << j.dump(2);
+
+    std::filesystem::rename(tmp, path, ec);
+    if (ec) {
+        // Windows에서는 대상이 존재하면 rename이 실패하므로 제거 후 재시도한다.
+        std::error_code ignore;
+        std::filesystem::remove(path, ignore);
+        ec.clear();
+        std::filesystem::rename(tmp, path, ec);
+        if (ec) {
+            std::filesystem::remove(tmp, ignore);
+            return false;
+        }
+    }
     return true;
 }
 

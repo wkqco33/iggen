@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "ignore_rules.hpp"
+
 namespace iggen {
 
 struct ProjectContext {
@@ -15,14 +17,6 @@ struct ProjectContext {
     std::vector<std::string> sample_file_tree;
     std::map<std::string, int> extension_counts;
 };
-
-inline auto is_ignored_directory(const std::string &name) -> bool {
-    static const std::set<std::string> ignored = {
-        ".git",  ".svn",   ".hg",  "node_modules",    "build",  "builds",      "out",
-        "bin",   "target", "dist", "vcpkg_installed", ".cache", "__pycache__", ".pytest_cache",
-        ".venv", "venv",   "env",  ".gradle",         ".idea",  ".vs"};
-    return ignored.find(name) != ignored.end();
-}
 
 inline auto is_known_build_file(const std::string &name) -> bool {
     static const std::set<std::string> known = {"CMakeLists.txt",
@@ -72,7 +66,8 @@ inline auto scan_project_context(const std::filesystem::path &root, int max_dept
         const auto filename = entry.path().filename().string();
 
         if (entry.is_directory(ec)) {
-            if (is_ignored_directory(filename) || depth >= max_depth) {
+            if (is_ignored_directory(filename) || is_cmake_build_directory(filename) ||
+                depth >= max_depth) {
                 iter.disable_recursion_pending();
             }
             iter.increment(ec);

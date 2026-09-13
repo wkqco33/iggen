@@ -77,12 +77,26 @@ void test_detect_skips_build_dirs() {
     assert(langs.size() == 1);
 }
 
+void test_detect_skips_dependency_and_ide_dirs() {
+    auto dir = make_tree({"vcpkg_installed/x64/include/dep.hpp", "cmake-build-debug/generated.go",
+                          ".venv/lib/mod.py", "src/main.cpp"});
+    auto langs = iggen::detect_languages(dir);
+    fs::remove_all(dir);
+
+    // 의존성/빌드/가상환경 디렉터리는 스캔에서 제외된다.
+    assert(langs.count("go") == 0);
+    assert(langs.count("python") == 0);
+    assert(langs.count("c++") == 1);
+    assert(langs.size() == 1);
+}
+
 } // namespace
 
 auto main() -> int {
     test_extension_map();
     test_detect_languages();
     test_detect_skips_build_dirs();
+    test_detect_skips_dependency_and_ide_dirs();
     std::cout << "All detector tests passed.\n";
     return 0;
 }

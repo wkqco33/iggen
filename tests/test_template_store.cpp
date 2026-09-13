@@ -82,6 +82,49 @@ void test_merge_user_overrides_builtin() {
     assert(merged.source == "cache");
 }
 
+void test_schema_version_and_atomic_save() {
+    auto p = temp_json();
+    iggen::TemplateStore s;
+    s.templates["python"] = "x";
+    assert(iggen::save_store(p, s));
+
+    // 원자적 저장: 임시 파일이 남지 않는다.
+    assert(!fs::exists(fs::path(p.string() + ".tmp")));
+
+    iggen::TemplateStore loaded;
+    assert(iggen::load_store(p, loaded));
+    assert(loaded.schema_version == iggen::kTemplateStoreSchemaVersion);
+
+    // schema_version이 없는 예전 캐시도 계속 읽을 수 있어야 한다(하위 호환).
+    {
+        std::ofstream out(p, std::ios::trunc);
+        out << R"({"version":"old","templates":{"python":"y"}})";
+    }
+    iggen::TemplateStore legacy;
+    assert(iggen::load_store(p, legacy));
+    assert(legacy.schema_version == iggen::kTemplateStoreSchemaVersion);
+    assert(legacy.templates["python"] == "y");
+
+    fs::remove(p);
+}
+
+void test_save_store_replaces_existing_file() {
+    auto p = temp_json();
+    {
+        std::ofstream out(p);
+        out << "not json at all";
+    }
+
+    iggen::TemplateStore s;
+    s.templates["node"] = "n";
+    assert(iggen::save_store(p, s));
+
+    iggen::TemplateStore loaded;
+    assert(iggen::load_store(p, loaded));
+    assert(loaded.templates["node"] == "n");
+    fs::remove(p);
+}
+
 void test_render_templates() {
     iggen::TemplateStore s;
     s.templates["a"] = "AAA\n";
@@ -103,6 +146,8 @@ auto main() -> int {
     test_save_load_roundtrip();
     test_load_missing_file_fails();
     test_merge_user_overrides_builtin();
+    test_schema_version_and_atomic_save();
+    test_save_store_replaces_existing_file();
     test_render_templates();
     std::cout << "All template_store tests passed.\n";
     return 0;

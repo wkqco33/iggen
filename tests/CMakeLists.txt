@@ -1,43 +1,65 @@
-# Shared include dir for all test targets
-set(IGGEN_TEST_INCLUDES ${CMAKE_SOURCE_DIR}/include)
+# Shared include dirs for all test targets (generated headers hold IGGEN_VERSION).
+set(IGGEN_TEST_INCLUDES
+  ${CMAKE_SOURCE_DIR}/include
+  ${CMAKE_BINARY_DIR}/generated
+)
 
-add_executable(iggen_smoke smoke_test.cpp)
-target_include_directories(iggen_smoke PRIVATE ${IGGEN_TEST_INCLUDES})
-target_link_libraries(iggen_smoke PRIVATE wcppcli httplib::httplib OpenSSL::SSL OpenSSL::Crypto llm_client)
-target_compile_definitions(iggen_smoke PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
-add_test(NAME iggen_smoke COMMAND iggen_smoke)
+# IGGEN_WARNINGS_AS_ERRORS=ON 이면 테스트 타깃에도 동일한 경고 정책을 적용한다.
+set(IGGEN_TEST_WARNINGS "")
+if(IGGEN_WARNINGS_AS_ERRORS)
+  if(MSVC)
+    set(IGGEN_TEST_WARNINGS /W4 /WX)
+  else()
+    set(IGGEN_TEST_WARNINGS -Wall -Wextra -Wpedantic -Werror)
+  endif()
+endif()
 
-add_executable(iggen_test_detector test_detector.cpp)
-target_include_directories(iggen_test_detector PRIVATE ${IGGEN_TEST_INCLUDES})
-add_test(NAME iggen_detector COMMAND iggen_test_detector)
+# iggen_add_test(<target> <source> [LIBS ...] [DEFINES ...])
+function(iggen_add_test target source)
+  cmake_parse_arguments(ARG "" "" "LIBS;DEFINES" ${ARGN})
+  add_executable(${target} ${source})
+  target_include_directories(${target} PRIVATE ${IGGEN_TEST_INCLUDES})
+  if(ARG_LIBS)
+    target_link_libraries(${target} PRIVATE ${ARG_LIBS})
+  endif()
+  if(ARG_DEFINES)
+    target_compile_definitions(${target} PRIVATE ${ARG_DEFINES})
+  endif()
+  if(IGGEN_TEST_WARNINGS)
+    target_compile_options(${target} PRIVATE ${IGGEN_TEST_WARNINGS})
+  endif()
+  add_test(NAME ${target} COMMAND ${target})
+endfunction()
 
-add_executable(iggen_test_file_writer test_file_writer.cpp)
-target_include_directories(iggen_test_file_writer PRIVATE ${IGGEN_TEST_INCLUDES})
-target_link_libraries(iggen_test_file_writer PRIVATE wcppcli)
-add_test(NAME iggen_file_writer COMMAND iggen_test_file_writer)
+iggen_add_test(iggen_test_smoke smoke_test.cpp
+  LIBS wcppcli httplib::httplib OpenSSL::SSL OpenSSL::Crypto llm_client
+  DEFINES CPPHTTPLIB_OPENSSL_SUPPORT)
 
-add_executable(iggen_test_template_store test_template_store.cpp)
-target_include_directories(iggen_test_template_store PRIVATE ${IGGEN_TEST_INCLUDES})
-target_link_libraries(iggen_test_template_store PRIVATE nlohmann_json::nlohmann_json)
-add_test(NAME iggen_template_store COMMAND iggen_test_template_store)
+iggen_add_test(iggen_test_detector test_detector.cpp)
 
-add_executable(iggen_test_paths test_paths.cpp)
-target_include_directories(iggen_test_paths PRIVATE ${IGGEN_TEST_INCLUDES})
-add_test(NAME iggen_paths COMMAND iggen_test_paths)
+iggen_add_test(iggen_test_ignore_rules test_ignore_rules.cpp)
 
-add_executable(iggen_test_api_client test_api_client.cpp)
-target_include_directories(iggen_test_api_client PRIVATE ${IGGEN_TEST_INCLUDES})
-target_link_libraries(iggen_test_api_client PRIVATE httplib::httplib OpenSSL::SSL OpenSSL::Crypto)
-target_compile_definitions(iggen_test_api_client PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
-add_test(NAME iggen_api_client COMMAND iggen_test_api_client)
+iggen_add_test(iggen_test_file_writer test_file_writer.cpp
+  LIBS wcppcli)
 
-add_executable(iggen_test_project_scanner test_project_scanner.cpp)
-target_include_directories(iggen_test_project_scanner PRIVATE ${IGGEN_TEST_INCLUDES})
-add_test(NAME iggen_project_scanner COMMAND iggen_test_project_scanner)
+iggen_add_test(iggen_test_template_store test_template_store.cpp
+  LIBS nlohmann_json::nlohmann_json)
 
-add_executable(iggen_test_ai_refiner test_ai_refiner.cpp)
-target_include_directories(iggen_test_ai_refiner PRIVATE ${IGGEN_TEST_INCLUDES})
-target_link_libraries(iggen_test_ai_refiner PRIVATE llm_client)
-add_test(NAME iggen_ai_refiner COMMAND iggen_test_ai_refiner)
+iggen_add_test(iggen_test_paths test_paths.cpp)
 
+iggen_add_test(iggen_test_api_client test_api_client.cpp
+  LIBS httplib::httplib OpenSSL::SSL OpenSSL::Crypto
+  DEFINES CPPHTTPLIB_OPENSSL_SUPPORT)
 
+iggen_add_test(iggen_test_project_scanner test_project_scanner.cpp)
+
+iggen_add_test(iggen_test_ai_refiner test_ai_refiner.cpp
+  LIBS llm_client)
+
+iggen_add_test(iggen_test_report test_report.cpp
+  LIBS nlohmann_json::nlohmann_json)
+
+# CLI 계약 테스트: 목 서버(127.0.0.1)만 사용하므로 외부 네트워크가 필요 없다.
+iggen_add_test(iggen_test_cli test_cli.cpp
+  LIBS wcppcli httplib::httplib OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json llm_client
+  DEFINES CPPHTTPLIB_OPENSSL_SUPPORT)

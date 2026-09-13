@@ -6,7 +6,8 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
+
+#include "ignore_rules.hpp"
 
 namespace iggen {
 
@@ -120,11 +121,6 @@ inline std::string_view file_extension(const std::filesystem::path &p) {
 }
 
 inline auto detect_languages(const std::filesystem::path &root) -> std::set<std::string> {
-    static const std::unordered_set<std::string> skip_dirs = {
-        ".git",   "build",  "out",  "node_modules", "__pycache__",
-        "target", "vendor", "dist", "wcppcli",
-    };
-
     namespace fs = std::filesystem;
     const auto &ext_map = extension_map();
     std::set<std::string> result;
@@ -136,10 +132,9 @@ inline auto detect_languages(const std::filesystem::path &root) -> std::set<std:
          it != end; ++it) {
         if (it->is_directory()) {
             const auto name = it->path().filename().string();
-            const bool is_hidden = !name.empty() && name[0] == '.';
-            const bool is_skipped = skip_dirs.count(name) > 0;
-            const bool is_cmake_bld = name.rfind("cmake-build-", 0) == 0;
-            if (is_hidden || is_skipped || is_cmake_bld) {
+            // 숨김 디렉터리(.git, .venv ...)와 빌드/의존성 디렉터리는 순회하지 않는다.
+            if (is_hidden_directory(name) || is_ignored_directory(name) ||
+                is_cmake_build_directory(name)) {
                 it.disable_recursion_pending();
             }
             continue;
