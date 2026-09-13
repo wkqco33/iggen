@@ -84,13 +84,13 @@ jobs:
         if: runner.os != 'Windows'
         run: cmake --preset release
 
-      # 릴리스 바이너리도 테스트를 통과한 코드에서만 만든다.
+      - name: Build
+        run: cmake --build --preset release
+
+      # 릴리스 바이너리도 테스트를 통과한 코드에서만 배포한다(빌드 후에 실행해야 한다).
       - name: Test
         shell: bash
         run: ctest --preset release --output-on-failure < /dev/null
-
-      - name: Build
-        run: cmake --build --preset release
 
       # Package as an archive per PACKAGE_GUIDE (archive format preferred over bare binary).
       - name: Stage binary, license, and README

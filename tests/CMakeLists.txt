@@ -28,6 +28,13 @@ function(iggen_add_test target source)
   if(IGGEN_TEST_WARNINGS)
     target_compile_options(${target} PRIVATE ${IGGEN_TEST_WARNINGS})
   endif()
+  # assert 기반 테스트가 Release(NDEBUG) 구성에서도 실제로 검증되게 한다.
+  # 그렇지 않으면 Release 빌드의 테스트는 아무것도 확인하지 않는다.
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /UNDEBUG)
+  else()
+    target_compile_options(${target} PRIVATE -UNDEBUG)
+  endif()
   add_test(NAME ${target} COMMAND ${target})
   # 테스트가 멈추면 CI 작업이 몇 시간씩 붙들리므로 테스트별 시간 제한을 둔다.
   # (초과 시 ctest가 실패로 처리하고 해당 테스트 출력을 보여준다.)
