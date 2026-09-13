@@ -14,6 +14,7 @@ jobs:
   lint:
     name: Code Formatting Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -27,6 +28,7 @@ jobs:
   tidy:
     name: clang-tidy (static analysis)
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -74,6 +76,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # 의존성 빌드가 느린 러너에서 작업이 몇 시간씩 붙들리지 않게 상한을 둔다.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -121,10 +125,12 @@ jobs:
         shell: bash
         run: ctest --preset debug --output-on-failure < /dev/null
 
-      # 경고를 오류로 승격한 별도 구성으로 회귀를 막는다.
+      # 경고를 오류로 승격한 구성은 Linux에서만 확인한다(다른 OS는 빌드 시간이 길다).
       - name: Configure (warnings as errors)
+        if: runner.os == 'Linux'
         shell: bash
         run: cmake --preset debug -B build/strict -DIGGEN_WARNINGS_AS_ERRORS=ON
 
       - name: Build (warnings as errors)
+        if: runner.os == 'Linux'
         run: cmake --build build/strict

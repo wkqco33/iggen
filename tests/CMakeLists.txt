@@ -29,6 +29,9 @@ function(iggen_add_test target source)
     target_compile_options(${target} PRIVATE ${IGGEN_TEST_WARNINGS})
   endif()
   add_test(NAME ${target} COMMAND ${target})
+  # 테스트가 멈추면 CI 작업이 몇 시간씩 붙들리므로 테스트별 시간 제한을 둔다.
+  # (초과 시 ctest가 실패로 처리하고 해당 테스트 출력을 보여준다.)
+  set_tests_properties(${target} PROPERTIES TIMEOUT 60)
 endfunction()
 
 iggen_add_test(iggen_test_smoke smoke_test.cpp

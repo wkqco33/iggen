@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -69,9 +70,14 @@ struct RunResult {
     std::string err;
 };
 
+// 테스트 하네스는 항상 --no-input을 붙인다. 러너에 tty가 있고 출력 파일이 이미 있으면
+// 프롬프트가 stdin을 기다리며 CI 작업을 몇 시간씩 붙잡을 수 있기 때문이다.
+// (대화형 경로 자체는 test_file_writer.cpp에서 명시적으로 검증한다.)
 auto run_cli(const std::vector<std::string> &args) -> RunResult {
     std::vector<char *> argv;
     argv.push_back(const_cast<char *>("iggen"));
+    const std::string no_input = "--no-input";
+    argv.push_back(const_cast<char *>(no_input.c_str()));
     for (const auto &a : args) {
         argv.push_back(const_cast<char *>(a.c_str()));
     }
@@ -128,7 +134,21 @@ class MockApi {
             return false;
         }
         thread = std::thread([this] { svr_.listen_after_bind(); });
-        svr_.wait_until_ready();
+
+        // wait_until_ready()는 준비되지 않으면 무한 대기하므로, 시간 제한을 두고
+        // 실패 시 조용히 멈추지 않고 원인을 출력한다.
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (!svr_.is_running() && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        if (!svr_.is_running()) {
+            std::cerr << "mock API server did not become ready on 127.0.0.1:" << port << std::endl;
+            svr_.stop();
+            if (thread.joinable()) {
+                thread.join();
+            }
+            return false;
+        }
         return true;
     }
 
@@ -244,6 +264,7 @@ void test_existing_file_needs_confirmation_without_tty() {
     std::ofstream(target) << "old content\n";
 
     // 비대화형에서 조용히 넘어가지 않고 사용법 오류(2)로 실패한다.
+    // (프롬프트로 멈추지 않도록 하네스가 --no-input을 항상 붙인다.)
     const auto refused = run_cli({"-o", target.string(), "-l", "python", "--no-defaults"});
     assert(refused.code == 2);
     assert(refused.err.find("-y/--yes") != std::string::npos);
