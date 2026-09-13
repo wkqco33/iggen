@@ -137,6 +137,8 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
+          # 재실행 시 같은 이름의 자산을 덮어써 릴리스 재시도를 멱등하게 만든다.
+          overwrite_files: true
           files: |
             ${{ matrix.asset_name }}
             ${{ matrix.asset_name }}.sha256

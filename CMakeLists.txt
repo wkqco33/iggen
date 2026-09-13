@@ -25,16 +25,13 @@ if(WIN32)
   add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
 endif()
 
-# vcpkg triplet의 CRT 링키지와 MSVC 런타임을 일치시킨다.
-# x64-windows-static 처럼 정적 CRT triplet을 쓰면 vcpkg 라이브러리는 /MT로 빌드되는데
-# 우리 오브젝트가 /MD로 남으면 LNK2038(RuntimeLibrary mismatch)로 링크가 실패한다.
-# (릴리스 워크플로우의 Windows 빌드가 이 오류로 실패했다.)
-if(MSVC AND DEFINED VCPKG_CRT_LINKAGE)
-  if(VCPKG_CRT_LINKAGE STREQUAL "static")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-  else()
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-  endif()
+# vcpkg의 정적 CRT triplet(x64-windows-static 등)은 라이브러리를 /MT로 빌드한다.
+# 소비자 오브젝트가 /MD로 남으면 LNK2038(RuntimeLibrary mismatch)로 링크가 실패한다.
+# vcpkg.cmake는 VCPKG_CRT_LINKAGE를 소비자 스코프에 노출하지 않으므로 triplet 이름으로 판별한다.
+# (…-windows-static-md는 정적 라이브러리 + 동적 CRT이므로 /MD를 유지해야 한다.)
+if(MSVC AND VCPKG_TARGET_TRIPLET MATCHES "windows-static$")
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  message(STATUS "iggen: triplet ${VCPKG_TARGET_TRIPLET} -> static MSVC runtime (/MT)")
 endif()
 
 # HTTP and JSON dependencies
