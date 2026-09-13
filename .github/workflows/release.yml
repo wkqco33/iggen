@@ -6,29 +6,52 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # 태그(v1.2.3)와 CMakeLists.txt/vcpkg.json/CHANGELOG의 버전이 모두 일치해야 릴리스한다.
+  verify-version:
+    name: Verify version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Compare tag with project version, vcpkg manifest, and CHANGELOG
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          CMAKE_VERSION="$(sed -n 's/^project(iggen VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+          VCPKG_VERSION="$(python3 -c "import json;print(json.load(open('vcpkg.json'))['version-string'])")"
+          echo "tag=$TAG cmake=$CMAKE_VERSION vcpkg=$VCPKG_VERSION"
+          test "$TAG" = "$CMAKE_VERSION" || { echo "::error::tag ($TAG) != CMakeLists.txt ($CMAKE_VERSION)"; exit 1; }
+          test "$TAG" = "$VCPKG_VERSION" || { echo "::error::tag ($TAG) != vcpkg.json ($VCPKG_VERSION)"; exit 1; }
+          grep -q "^## \[$TAG\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section for $TAG"; exit 1; }
+
   build:
+    name: Build (${{ matrix.os }})
+    needs: verify-version
+    permissions:
+      contents: write   # release upload
+      id-token: write   # build provenance attestation
+      attestations: write
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             asset_name: iggen_linux_amd64.tar.gz
-            archive_cmd: tar -czf
           - os: macos-latest
             asset_name: iggen_darwin_arm64.tar.gz
-            archive_cmd: tar -czf
           - os: windows-latest
             asset_name: iggen_windows_amd64.zip
-            archive_cmd: powershell Compress-Archive
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           submodules: recursive
+          # 빌드 단계에 GITHUB_TOKEN을 남기지 않는다(공급망 보안).
+          persist-credentials: false
 
       - name: Install Ninja (Linux)
         if: runner.os == 'Linux'
@@ -40,7 +63,7 @@ jobs:
 
       - name: Setup MSVC + Ninja (Windows)
         if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
       - name: Install Ninja (Windows)
         if: runner.os == 'Windows'
@@ -59,34 +82,60 @@ jobs:
         if: runner.os != 'Windows'
         run: cmake --preset release
 
+      # 릴리스 바이너리도 테스트를 통과한 코드에서만 만든다.
+      - name: Test
+        shell: bash
+        run: ctest --preset release --output-on-failure < /dev/null
+
       - name: Build
         run: cmake --build --preset release
 
       # Package as an archive per PACKAGE_GUIDE (archive format preferred over bare binary).
-      - name: Package archive (Unix)
-        if: runner.os != 'Windows'
+      - name: Stage binary, license, and README
         shell: bash
         run: |
           mkdir -p staging
-          cp build/release/iggen staging/iggen
-          tar -czf "${{ matrix.asset_name }}" -C staging iggen
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp build/release/iggen.exe staging/iggen.exe
+          else
+            cp build/release/iggen staging/iggen
+          fi
+          cp LICENSE README.md staging/
+
+      - name: Package archive (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: tar -czf "${{ matrix.asset_name }}" -C staging iggen LICENSE README.md
 
       - name: Package archive (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          mkdir -p staging
-          cp build/release/iggen.exe staging/iggen.exe
-          powershell -Command "Compress-Archive -Path staging/iggen.exe -DestinationPath '${{ matrix.asset_name }}'"
+          powershell -Command "Compress-Archive -Path staging/iggen.exe,staging/LICENSE,staging/README.md -DestinationPath '${{ matrix.asset_name }}'"
 
       - name: Generate SHA-256 checksum
         shell: bash
         run: |
           sha256sum "${{ matrix.asset_name }}" > "${{ matrix.asset_name }}.sha256"
 
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: staging
+          format: spdx-json
+          output-file: ${{ matrix.asset_name }}.spdx.json
+          artifact-name: sbom-${{ matrix.os }}
+          upload-artifact: false
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: ${{ matrix.asset_name }}
+
       - name: Upload to Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           files: |
             ${{ matrix.asset_name }}
             ${{ matrix.asset_name }}.sha256
+            ${{ matrix.asset_name }}.spdx.json

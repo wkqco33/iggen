@@ -6,17 +6,66 @@ on:
   pull_request:
     branches: [master]
 
+# 기본 토큰 권한을 최소화한다(잡별로 필요한 권한만 추가).
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Code Formatting Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Check clang-format
         run: |
           sudo apt-get install -y clang-format
           clang-format --dry-run --Werror src/*.cpp include/*.hpp tests/*.cpp
+
+  tidy:
+    name: clang-tidy (static analysis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install toolchain
+        run: sudo apt-get install -y ninja-build clang-tidy
+
+      - name: Set VCPKG_ROOT and Binary Cache
+        shell: bash
+        run: |
+          echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/vcpkg_cache"
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$HOME/vcpkg_cache" >> "$GITHUB_ENV"
+
+      - name: Cache vcpkg artifacts
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/vcpkg_cache
+          key: vcpkg-tidy-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-tidy-${{ runner.os }}-
+
+      - name: Configure (compile_commands.json 포함)
+        shell: bash
+        run: cmake --preset debug
+
+      - name: Build dependencies so compile_commands.json is complete
+        run: cmake --build --preset debug
+
+      # .clang-tidy 의 WarningsAsErrors 가 비어 있어 경고는 실패로 이어지지 않는다.
+      # 컴파일 오류만 실패로 처리되므로 게이트로 사용할 수 있다.
+      - name: Run clang-tidy
+        shell: bash
+        run: |
+          clang-tidy -p build/debug --quiet src/main.cpp
+          for f in tests/*.cpp; do
+            clang-tidy -p build/debug --quiet "$f"
+          done
 
   test:
     name: Build & Test (${{ matrix.os }})
@@ -26,9 +75,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Install Ninja (Linux)
         if: runner.os == 'Linux'
@@ -40,7 +90,7 @@ jobs:
 
       - name: Setup MSVC + Ninja (Windows)
         if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
       - name: Install Ninja (Windows)
         if: runner.os == 'Windows'
@@ -54,7 +104,7 @@ jobs:
           echo "VCPKG_DEFAULT_BINARY_CACHE=$HOME/vcpkg_cache" >> "$GITHUB_ENV"
 
       - name: Cache vcpkg artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/vcpkg_cache
           key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
@@ -70,3 +120,11 @@ jobs:
       - name: Run Tests
         shell: bash
         run: ctest --preset debug --output-on-failure < /dev/null
+
+      # 경고를 오류로 승격한 별도 구성으로 회귀를 막는다.
+      - name: Configure (warnings as errors)
+        shell: bash
+        run: cmake --preset debug -B build/strict -DIGGEN_WARNINGS_AS_ERRORS=ON
+
+      - name: Build (warnings as errors)
+        run: cmake --build build/strict

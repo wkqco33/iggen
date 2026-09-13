@@ -1,0 +1,60 @@
+name: Repository hygiene
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    # 매주 월요일 UTC 04:00 정기 점검
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: Blobs, build artifacts, and secret patterns
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      # 빌드 산출물/의존성 디렉터리가 다시 커밋되면 실패시킨다(저장소 비대화 방지).
+      - name: Reject tracked build artifacts
+        run: |
+          tracked_build="$(git ls-files | grep -E '(^|/)(build|builds|vcpkg_installed|_deps|node_modules|__pycache__|\.venv)/' || true)"
+          if [ -n "$tracked_build" ]; then
+            echo "::error::build artifacts must not be committed"
+            echo "$tracked_build"
+            exit 1
+          fi
+
+      # 1MB 초과 파일은 리뷰 불가/저장소 비대화의 원인이므로 커밋하지 않는다.
+      - name: Reject large tracked files
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            size="$(wc -c < "$f")"
+            if [ "$size" -gt 1048576 ]; then
+              echo "::error file=$f::$f is $size bytes (>1MB)"
+              fail=1
+            fi
+          done < <(git ls-files)
+          exit "$fail"
+
+      # 시크릿이 커밋되는 것을 막는 최소 방어선. (GitHub 시크릿 스캔/푸시 보호를 함께 켜는 것을 권장)
+      - name: Scan tracked files for secret patterns
+        run: |
+          if git grep -nIE \
+            -e 'BEGIN [A-Z ]*PRIVATE KEY' \
+            -e 'AKIA[0-9A-Z]{16}' \
+            -e 'gh[pousr]_[A-Za-z0-9]{36,}' \
+            -e 'sk-[A-Za-z0-9]{32,}' \
+            -e 'xox[baprs]-[A-Za-z0-9-]{10,}' \
+            -- . ; then
+            echo "::error::possible secret detected in tracked files"
+            exit 1
+          fi
