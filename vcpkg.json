@@ -1,7 +1,10 @@
 {
   "name": "iggen",
-  "version-string": "0.1.0",
+  "version-string": "0.4.0",
   "description": "Auto-generates .gitignore files via gitignore.io API",
+  "homepage": "https://github.com/wkqco33/iggen",
+  "license": "MIT",
+  "builtin-baseline": "04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4",
   "dependencies": [
     { "name": "cpp-httplib", "features": ["openssl"] },
     { "name": "nlohmann-json" },

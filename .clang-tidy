@@ -5,6 +5,9 @@ Checks: >
   performance-*,
   readability-*,
   misc-*
+# 경고는 CI를 실패시키지 않는다(컴파일 오류만 실패). WarningsAsErrors를 빈 목록으로 둔다.
 WarningsAsErrors: ''
-HeaderFilterRegex: '.*'
+# 프로젝트 코드(iggen/include, src, tests)만 검사한다. 그대로 두면 vcpkg_installed와
+# FetchContent(_deps)로 받은 서드파티 헤더 경고까지 보고돼 노이즈가 커진다.
+HeaderFilterRegex: 'iggen/(include|src|tests)/'
 FormatStyle: none

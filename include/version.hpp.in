@@ -1,0 +1,5 @@
+#pragma once
+
+// CMake가 빌드 시 생성하는 버전 헤더. 직접 수정하지 않는다.
+// 버전의 단일 소스는 CMakeLists.txt의 project(iggen VERSION x.y.z)이다.
+#define IGGEN_VERSION "@PROJECT_VERSION@"
