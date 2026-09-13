@@ -73,3 +73,12 @@ iggen_add_test(iggen_test_report test_report.cpp
 iggen_add_test(iggen_test_cli test_cli.cpp
   LIBS wcppcli httplib::httplib OpenSSL::SSL OpenSSL::Crypto nlohmann_json::nlohmann_json llm_client
   DEFINES CPPHTTPLIB_OPENSSL_SUPPORT)
+
+# SBOM 생성기(tools/generate_sbom.py) 자체 테스트. 네트워크가 필요 없고,
+# python3가 없는 환경에서는 조용히 건너뛴다.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME iggen_test_sbom_generator
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/generate_sbom.py --selftest)
+  set_tests_properties(iggen_test_sbom_generator PROPERTIES TIMEOUT 60)
+endif()

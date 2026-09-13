@@ -27,6 +27,8 @@ jobs:
           test "$TAG" = "$CMAKE_VERSION" || { echo "::error::tag ($TAG) != CMakeLists.txt ($CMAKE_VERSION)"; exit 1; }
           test "$TAG" = "$VCPKG_VERSION" || { echo "::error::tag ($TAG) != vcpkg.json ($VCPKG_VERSION)"; exit 1; }
           grep -q "^## \[$TAG\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section for $TAG"; exit 1; }
+      - name: SBOM generator selftest
+        run: python3 tools/generate_sbom.py --selftest
 
   build:
     name: Build (${{ matrix.os }})
@@ -120,14 +122,21 @@ jobs:
         run: |
           sha256sum "${{ matrix.asset_name }}" > "${{ matrix.asset_name }}.sha256"
 
-      - name: Generate SBOM (SPDX)
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
-        with:
-          path: staging
-          format: spdx-json
-          output-file: ${{ matrix.asset_name }}.spdx.json
-          artifact-name: sbom-${{ matrix.os }}
-          upload-artifact: false
+      # 바이너리 스캔은 C++ 의존성을 찾지 못하므로 vcpkg 설치 상태에서 실제 의존성 목록을 만든다.
+      - name: Generate SBOM (SPDX, vcpkg dependencies)
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=python3
+          if [ "${{ runner.os }}" = "Windows" ]; then PY=python; fi
+          status_args=""
+          while IFS= read -r status_file; do
+            status_args="$status_args --status $status_file"
+          done < <(find build/release/vcpkg_installed -path '*/vcpkg/status' -type f)
+          $PY tools/generate_sbom.py \
+            --asset "${{ matrix.asset_name }}" \
+            --out "${{ matrix.asset_name }}.spdx.json" \
+            $status_args
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2

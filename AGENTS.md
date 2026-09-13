@@ -53,6 +53,7 @@ cmake --build build/strict
 - `tests/test_report.cpp` — `--json` 계약과 시크릿 입력
 - `tests/test_ai_refiner.cpp` — LLM 응답 파싱
 - `tests/smoke_test.cpp` — 헤더 공용 컴파일/링크 스모크 테스트
+- `tools/generate_sbom.py --selftest` — 릴리스 SBOM 생성기 자체 테스트(ctest에 등록)
 
 ### 테스트 규칙
 
@@ -102,6 +103,8 @@ clang-tidy -p build/debug src/main.cpp
 - 릴리스 노트는 [Keep a Changelog](https://keepachangelog.com/) 형식(Added/Changed/Fixed/
   Security)을 따릅니다.
 - 릴리스는 CI에서만 수행하며 SHA-256, SPDX SBOM, 빌드 provenance를 첨부합니다.
+  SBOM은 `tools/generate_sbom.py`가 vcpkg `status`에서 의존성 목록을 만들어 생성하며,
+  바이너리만 스캔하는 방식(의존성이 드러나지 않음)으로 되돌리지 마세요.
 - GitHub Actions는 이동하는 태그(`@v4`)가 아니라 **커밋 SHA로 고정**합니다.
 
 ## 공급망/재현성

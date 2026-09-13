@@ -266,7 +266,8 @@ iggen/
 ├── src/
 │   └── main.cpp              # 진입점 (iggen::run 호출만)
 ├── tools/
-│   └── fetch_defaults.py     # 내장 기본값 재생성 스크립트
+│   ├── fetch_defaults.py     # 내장 기본값 재생성 스크립트
+│   └── generate_sbom.py      # 릴리스 SPDX SBOM 생성기 (vcpkg 의존성)
 ├── tests/
 │   ├── test_cli.cpp          # CLI 계약(종료 코드·스트림·JSON) E2E
 │   ├── test_detector.cpp     # 언어 감지
@@ -304,6 +305,9 @@ CI는 포맷 검사(`clang-format --dry-run --Werror`), clang-tidy, `-Werror` �
 - 템플릿 이름은 `[A-Za-z0-9+#._-]{1,64}`로 검증한 뒤에만 URL에 사용합니다.
 - LLM API 키는 `--ai-api-key-file`/`--ai-api-key-stdin`/환경변수로 받습니다.
 - 릴리스는 CI에서만 수행하고 SHA-256 체크섬, SPDX SBOM, 빌드 provenance를 함께 제공합니다.
+  SBOM은 `tools/generate_sbom.py`가 vcpkg 설치 상태(`vcpkg/status`)에서 뽑은 **의존성
+  버전 목록**(purl 포함)과 산출물 체크섬을 담으며, `gh attestation verify <asset> --repo wkqco33/iggen`로
+  provenance를 검증할 수 있습니다.
 - 보안 취약점 신고는 [SECURITY.md](SECURITY.md)를 참고하세요.
 
 ## 라이선스
