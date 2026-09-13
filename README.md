@@ -262,7 +262,6 @@ iggen/
 │   ├── secret_input.hpp      # 시크릿 파일/stdin 입력
 │   ├── paths.hpp             # 사용자 데이터 디렉토리 해석
 │   ├── exit_code.hpp         # 종료 코드 계약
-│   ├── tty.hpp               # TTY 판별
 │   └── version.hpp.in        # 버전 템플릿 (CMake가 생성)
 ├── src/
 │   └── main.cpp              # 진입점 (iggen::run 호출만)

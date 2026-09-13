@@ -34,14 +34,24 @@ void test_write_new_file() {
     fs::remove(p);
 }
 
-void test_write_existing_non_tty_needs_confirmation() {
+void test_write_existing_non_interactive_needs_confirmation() {
     auto p = temp_file();
     std::ofstream(p) << "existing";
+
+    // 비대화형 여부를 명시적으로 고정한다. 러너에 따라 stdin이 tty일 수 있어
+    // (Windows CI가 그렇다) 자동 판별에 의존하면 프롬프트에서 멈출 수 있다.
+    wcppcli::ui::set_interactive_enabled(false);
+    std::ostringstream prompt_sink;
+    auto *old_err = std::cerr.rdbuf(prompt_sink.rdbuf());
+    auto r = iggen::write_output(p, "new");
+    std::cerr.rdbuf(old_err);
+    wcppcli::ui::reset_interactive_enabled();
+
     // 비대화형에서는 조용히 건너뛰지 않고 NeedsConfirmation을 돌려준다.
     // (호출자가 0이 아닌 종료 코드로 사용자에게 -y/--yes를 안내해야 한다.)
-    auto r = iggen::write_output(p, "new");
     assert(r == iggen::WriteResult::NeedsConfirmation);
     assert(read_file(p) == "existing");
+    assert(prompt_sink.str().empty());
     fs::remove(p);
 }
 
@@ -99,7 +109,7 @@ void test_write_to_unwritable_path_is_error() {
 
 auto main() -> int {
     test_write_new_file();
-    test_write_existing_non_tty_needs_confirmation();
+    test_write_existing_non_interactive_needs_confirmation();
     test_force_overwrite_writes_without_prompt();
     test_declined_prompt_keeps_existing_file();
     test_write_dry_run_does_not_create_file();

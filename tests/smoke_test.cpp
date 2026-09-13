@@ -11,7 +11,6 @@
 #include "report.hpp"
 #include "secret_input.hpp"
 #include "template_store.hpp"
-#include "tty.hpp"
 
 #include <cassert>
 #include <iostream>
